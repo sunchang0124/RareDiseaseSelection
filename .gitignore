@@ -3,6 +3,10 @@
 .codex
 README_for_Agent.md
 
+# Embeddings folder — keep folder, ignore large binary embedding files
+Embeddings/*
+!Embeddings/.gitkeep
+
 # Data folder — keep folder, ignore all data files
 Data/*
 !Data/.gitkeep

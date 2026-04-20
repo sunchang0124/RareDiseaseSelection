@@ -18,8 +18,8 @@ import csv
 import sys
 from pathlib import Path
 
-EMBEDDINGS_PATH  = Path(__file__).parent.parent / "onto_cgans/data/ontology_emb/ontology.embeddings"
-ORDO_DICT_PATH   = Path(__file__).parent.parent / "onto_cgans/data/ontology_emb/ORDO.dict"
+EMBEDDINGS_PATH  = Path(__file__).parent / "Embeddings" / "ontology.embeddings"
+ORDO_DICT_PATH   = Path(__file__).parent / "Embeddings" / "ORDO.dict"
 ICD_MAPPING_PATH = Path(__file__).parent / "OrdoICDMapping" / "ordo_icd10_icd9_mapping.csv"
 COUNTS_PATH      = Path(__file__).parent / "OrdoICDMapping" / "ordo_patient_counts_subtype.csv"
 ORDO_URI_PREFIX  = "http://www.orpha.net/ORDO/Orphanet_"

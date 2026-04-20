@@ -9,20 +9,14 @@ Pipeline for building MIMIC-IV cohorts for rare diseases defined by ORDO ontolog
 ## Prerequisites
 
 - Python 3.11
-- Access to MIMIC-IV on BigQuery (`physionet-data.mimiciv_3_1_hosp`)
-- ORDO ontology embeddings at `../onto_cgans/data/ontology_emb/` (see parent repo)
-
-Install Python dependencies:
-
-```bash
-pip install pandas
-```
+- Access to MIMIC-IV on BigQuery (`physionet-data.mimiciv_3_1_hosp`) (How to access MIMIC on BigQuery? Check: https://physionet.org/content/mimiciv/3.1/)
+- Download ORDO ontology embeddings at https://doi.org/10.6084/m9.figshare.27959826
 
 ---
 
 ## Required External Data Files
 
-Download these two files and place them in `OrdoICDMapping/` before running the mapping build scripts.
+Download the following files and place 1 and 2 in `OrdoICDMapping/` and 3 in `Embeddings/`.
 
 ### 1. Orphadata ICD mapping XML
 
@@ -40,6 +34,17 @@ OrdoICDMapping/icd10cmtoicd9gem.csv
 
 Download from the CMS GEM files:
 https://www.cms.gov/Medicare/Coding/ICD10/2018-ICD-10-CM-and-GEMs
+
+---
+
+### 3. ORDO-HPO-HOOM Embedding files
+
+```
+Embeddings/
+```
+
+Download from:
+https://doi.org/10.6084/m9.figshare.27959826
 
 ---
 
