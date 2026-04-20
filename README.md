@@ -48,6 +48,17 @@ https://doi.org/10.6084/m9.figshare.27959826
 
 ---
 
+### 4. MIMIC Patient Diagnosis file
+
+```
+Data/diag.csv
+```
+
+Download from:
+https://physionet.org/content/mimiciv/3.1/hosp/diagnoses_icd.csv.gz
+
+---
+
 ## Setup: Build the ORDO–ICD Mapping
 
 Run once after placing the external data files:
@@ -76,7 +87,7 @@ Place your MIMIC diagnosis extract at `Data/diag.csv`. Required columns:
 Then run:
 
 ```bash
-python3.11 map_diag_to_ordo.py
+python3.11 OrdoICDMapping/map_diag_to_ordo.py
 ```
 
 This writes `OrdoICDMapping/diag_ordo_mapped.csv` and
@@ -149,13 +160,13 @@ data_query/
 ├── guided_disease_pipeline.py   # main interactive CLI
 ├── prepare_cgan_data.py         # long → wide cGAN preprocessing
 ├── find_similar_diseases.py     # ontology-neighbor search
-├── map_diag_to_ordo.py          # maps MIMIC diag.csv to ORDO
 ├── score_disease_candidates.py  # scoring helper for candidate diseases
 ├── pipeline_widgets.py          # Jupyter widget version (older)
 │
 ├── OrdoICDMapping/
 │   ├── extract_ordo_icd_mapping.py      # parses en_product1.xml
 │   ├── build_icd9_icd10_ordo_mapping.py # builds final ICD-10/9 ↔ ORDO map
+│   ├── map_diag_to_ordo.py              # maps MIMIC diag.csv to ORDO
 │   ├── en_product1.xml                  # [download — not in repo]
 │   └── icd10cmtoicd9gem.csv             # [download — not in repo]
 │
