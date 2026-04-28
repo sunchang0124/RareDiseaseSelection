@@ -157,7 +157,7 @@ def _load_and_filter(path: Path, exclude_ordo_codes: set[int] | None = None) -> 
     if exclude_ordo_codes:
         excluded_labels = sorted(
             label for label, code in LABEL_TO_ORDO.items()
-            if int(code) in exclude_ordo_codes
+            if code is not None and int(code) in exclude_ordo_codes
         )
         if excluded_labels:
             before = len(df)
@@ -576,8 +576,8 @@ def _to_cgan(wide: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         .fillna(wide["gender"])
     )
     wide["ordo_code"] = wide["disease_label"].map(LABEL_TO_ORDO)
-    iri_series   = wide["ordo_code"].apply(lambda x: ordo_to_iri(int(x)))
-    label_series = wide["ordo_code"].apply(lambda x: ordo_to_label(int(x)))
+    iri_series   = wide["ordo_code"].apply(lambda x: ordo_to_iri(int(x)) if pd.notna(x) else "")
+    label_series = wide["ordo_code"].apply(lambda x: ordo_to_label(int(x)) if pd.notna(x) else "")
 
     lab_cols = [c for c in wide.columns if c not in META_COLS]
     cgan = wide[["gender", "age"] + lab_cols].copy()
@@ -634,8 +634,9 @@ def process_file(path: Path, out_stem: str, out_dir: Path,
         print(f"  {'Label':55s}  {'ORDO':>8}  {'N':>6}")
         print(f"  {'─'*72}")
         for lbl, grp in sorted(wide.groupby("disease_label"), key=lambda x: x[0]):
-            ordo = int(grp["ordo_code"].iloc[0])
-            print(f"  {lbl[:55]:55s}  {ordo:>8}  {len(grp):>6}")
+            raw = grp["ordo_code"].iloc[0]
+            ordo = int(raw) if pd.notna(raw) else ""
+            print(f"  {lbl[:55]:55s}  {ordo!s:>8}  {len(grp):>6}")
         print(f"  {'─'*72}")
         print(f"  {'TOTAL':55s}  {'':8}  {len(wide):>6}")
         print(f"  → {out_path.name}  ({cgan.shape[0]:,} rows × {cgan.shape[1]} cols, "

@@ -31,6 +31,7 @@ ICD_MAP_PATH = ROOT / "OrdoICDMapping" / "ordo_icd10_icd9_mapping.csv"
 COUNTS_PATH = ROOT / "OrdoICDMapping" / "ordo_patient_counts_subtype.csv"
 CANDIDATE_CSV = ROOT / "candidate_diseases.csv"
 SIMILAR_CSV = ROOT / "similar_diseases.csv"
+LITERATURE_CSV = ROOT / "literature_differentials.csv"
 ORDO_PREFIX = "http://www.orpha.net/ORDO/Orphanet_"
 MIMIC_HOSP = "`physionet-data.mimiciv_3_1_hosp`"
 
@@ -115,6 +116,26 @@ def load_similar_csv() -> pd.DataFrame:
     if not SIMILAR_CSV.exists():
         return pd.DataFrame()
     return pd.read_csv(SIMILAR_CSV, dtype=str).fillna("")
+
+
+def load_literature_differentials(ordo_code: str) -> list[dict]:
+    """Return literature-based similar-disease rows for a given target ORDO code."""
+    if not LITERATURE_CSV.exists():
+        return []
+    df = pd.read_csv(LITERATURE_CSV, dtype=str).fillna("")
+    rows = df[df["target_ordo"] == ordo_code]
+    return [
+        {
+            "ordo_code": r["similar_ordo"],
+            "disease_name": r["similar_disease"],
+            "similarity": 1.0,
+            "n_mimic_patients": int(r["n_mimic_patients"] or 0),
+            "icd10_codes": r["icd10_codes"],
+            "icd9_codes": r["icd9_codes"],
+            "literature_source": r["literature_source"],
+        }
+        for _, r in rows.iterrows()
+    ]
 
 
 def save_candidate(ordo_code: str, disease_name: str, n_patients: int, domain: str) -> None:
@@ -413,7 +434,8 @@ def prepare_from_selection(selection: dict) -> None:
 
     label_to_ordo = {disease_name: int(ordo_code)}
     for row in selected_similar:
-        label_to_ordo[row["disease_name"]] = int(row["ordo_code"])
+        code = row["ordo_code"]
+        label_to_ordo[row["disease_name"]] = int(code) if code else None
 
     prep_mode = prompt_choice("Preparation mode: diagnosis, union, or both", ["diagnosis", "union", "both"], "diagnosis")
     strategies = ["diagnosis", "union"] if prep_mode == "both" else [prep_mode]
@@ -510,28 +532,72 @@ def main() -> None:
         print("ICD codes     : none for the selected ICD mode")
 
     print("\nStep 2: Find similar diseases")
-    use_saved = False
+
+    # ── Determine available sources ──────────────────────────────────────────
     saved_df = load_similar_csv()
     saved_rows = (
         saved_df[saved_df["target_ordo"] == ordo_code]
         if not saved_df.empty and "target_ordo" in saved_df.columns
         else pd.DataFrame()
     )
-    if not saved_rows.empty:
-        print(f"Found {len(saved_rows)} saved similar diseases for ORDO {ordo_code}.")
-        use_saved = prompt_yes_no("Reuse saved similar diseases", True)
+    lit_rows = load_literature_differentials(ordo_code)
 
-    if use_saved:
-        similar_rows = [{
-            "ordo_code": row["similar_ordo"],
-            "disease_name": row["similar_disease"],
-            "similarity": float(row["cosine_similarity"]),
-            "n_mimic_patients": int(row["n_mimic_patients"] or 0),
-            "icd10_codes": row["icd10_codes"],
-            "icd9_codes": row["icd9_codes"],
-        } for _, row in saved_rows.iterrows()]
-        selected_similar = similar_rows
-    else:
+    source_choices = ["embedding", "literature", "saved"]
+    source_hints = []
+    if not saved_rows.empty:
+        source_hints.append(f"saved ({len(saved_rows)} rows)")
+    if lit_rows:
+        source_hints.append(f"literature ({len(lit_rows)} rows)")
+    if source_hints:
+        print(f"Available: {', '.join(source_hints)}")
+
+    default_source = "literature" if lit_rows else ("saved" if not saved_rows.empty else "embedding")
+    source = prompt_choice(
+        "Disease source: embedding (cosine similarity), literature (clinical differential dx), or saved",
+        source_choices,
+        default_source,
+    )
+
+    if source == "saved":
+        if saved_rows.empty:
+            print("No saved rows found — falling back to literature.")
+            source = "literature"
+        else:
+            similar_rows = [{
+                "ordo_code": row["similar_ordo"],
+                "disease_name": row["similar_disease"],
+                "similarity": float(row["cosine_similarity"]),
+                "n_mimic_patients": int(row["n_mimic_patients"] or 0),
+                "icd10_codes": row["icd10_codes"],
+                "icd9_codes": row["icd9_codes"],
+            } for _, row in saved_rows.iterrows()]
+            selected_similar = similar_rows
+
+    if source == "literature":
+        if not lit_rows:
+            print("No literature differentials found for this ORDO code — falling back to embedding.")
+            source = "embedding"
+        else:
+            print(f"\nLiterature-based differential diagnoses for ORDO {ordo_code}:")
+            for i, row in enumerate(lit_rows, start=1):
+                src_short = row["literature_source"].split()[0]
+                print(
+                    f"{i:>2}. ORDO {row['ordo_code']:<8}  "
+                    f"n={row['n_mimic_patients']:<6}  "
+                    f"ICD-10={row['icd10_codes']:<8}  "
+                    f"[{src_short}]  {row['disease_name']}"
+                )
+            default_count = min(len(lit_rows), len(lit_rows))
+            default_indices = f"1-{default_count}"
+            while True:
+                raw = prompt("Select diseases by number or range", default_indices)
+                chosen = parse_selection(raw, len(lit_rows))
+                if chosen:
+                    break
+                print("Please choose at least one valid row number, range like 1-5, or 'all'.")
+            selected_similar = [lit_rows[i - 1] for i in chosen]
+
+    if source == "embedding":
         topn = prompt_int("How many candidates should I fetch", 10, minimum=1, maximum=50)
         mimic_only = prompt_yes_no("Only include diseases with MIMIC patients", True)
         named_only = prompt_yes_no("Only include named diseases", True)
@@ -561,10 +627,7 @@ def main() -> None:
         default_count = min(5, len(similar_rows))
         default_indices = f"1-{default_count}" if default_count > 1 else "1"
         while True:
-            raw = prompt(
-                "Select similar diseases by number or range",
-                default_indices,
-            )
+            raw = prompt("Select similar diseases by number or range", default_indices)
             chosen = parse_selection(raw, len(similar_rows))
             if chosen:
                 break
